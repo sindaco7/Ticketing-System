@@ -3,20 +3,28 @@ import java.awt.*;
 import java.sql.*;
 
 /**
- * CPS510 A9 – Simple Swing UI for E-Ticket DB
+ * CPS510 A9 – Swing UI for E-Ticket DB
  *
  * This GUI demonstrates:
  *  - Logging into TMU Oracle DB with user-entered credentials
  *  - Dropping / creating / populating tables
- *  - Simple reports on EVENTS (list + search by title)
+ *  - Query Tables (Events sub-menu) with:
+ *      * List Events
+ *      * Add Event
+ *      * Update Event Title
+ *      * Delete Event
+ *      * Search Events by Title
  *
- * It is intentionally small + clean to match the A9 demo requirement
- * and the "bonus for Java UI" mentioned in the rubric.
+ * It mirrors the console menu structure:
+ *  1) Drop Tables
+ *  2) Create Tables
+ *  3) Populate Tables
+ *  4) Query Tables (Events sub-menu)
+ *  0) Exit
  */
 public class ETicketGUI extends JFrame {
 
-    // We no longer hard-code USER/PASS into the app.
-    // Connection comes from the login dialog / main().
+    // Connection is passed in from the login dialog / main()
     private Connection conn;
     private JTextArea outputArea;
     private JTextField searchField;
@@ -43,27 +51,26 @@ public class ETicketGUI extends JFrame {
         JScrollPane scroll = new JScrollPane(outputArea);
         add(scroll, BorderLayout.CENTER);
 
-        // ===== Top button panel =====
+        // ===== Top button panel (mirrors main menu) =====
         buttonPanel = new JPanel();
-        buttonPanel.setLayout(new GridLayout(2, 3, 6, 6)); // 2 rows x 3 columns
+        // 5 main actions: Drop / Create / Populate / Query Tables / Exit
+        buttonPanel.setLayout(new GridLayout(1, 5, 6, 6));
 
         JButton btnDrop     = new JButton("Drop Tables");
         JButton btnCreate   = new JButton("Create Tables");
         JButton btnPopulate = new JButton("Populate Dummy Data");
-        JButton btnList     = new JButton("List Events");
-        JButton btnSearch   = new JButton("Search Events");
+        JButton btnQuery    = new JButton("Query Tables (Events)");
         JButton btnExit     = new JButton("Exit");
 
         buttonPanel.add(btnDrop);
         buttonPanel.add(btnCreate);
         buttonPanel.add(btnPopulate);
-        buttonPanel.add(btnList);
-        buttonPanel.add(btnSearch);
+        buttonPanel.add(btnQuery);
         buttonPanel.add(btnExit);
 
         add(buttonPanel, BorderLayout.NORTH);
 
-        // ===== Bottom search panel =====
+        // ===== Bottom search panel (simple direct search) =====
         JPanel searchPanel = new JPanel(new BorderLayout(5, 5));
         searchField = new JTextField();
         JButton btnSearchGo = new JButton("Search");
@@ -74,19 +81,18 @@ public class ETicketGUI extends JFrame {
 
         add(searchPanel, BorderLayout.SOUTH);
 
-        // We already have a working Connection at this point
+        // Connection is already open at this point
         appendLine("Connected to Oracle as: " + currentUser);
 
         // ===== Wire button actions =====
         btnDrop.addActionListener(e -> dropTables());
         btnCreate.addActionListener(e -> createTables());
         btnPopulate.addActionListener(e -> populateTables());
-        btnList.addActionListener(e -> listEvents());
 
-        // "Search Events" button just focuses the search field
-        btnSearch.addActionListener(e -> searchField.requestFocusInWindow());
+        // New: Query Tables button opens the Query Menu (Events sub-menu)
+        btnQuery.addActionListener(e -> showQueryMenu());
 
-        // Bottom "Search" executes the filtered query
+        // Bottom "Search" executes the filtered query using the search box
         btnSearchGo.addActionListener(e -> searchEvents());
 
         // Exit button closes DB connection and app
@@ -112,6 +118,57 @@ public class ETicketGUI extends JFrame {
     private void setButtonsEnabled(boolean enabled) {
         for (Component c : buttonPanel.getComponents()) {
             c.setEnabled(enabled);
+        }
+    }
+
+    // ============== Query Menu (Events sub-menu) ==============
+
+    /**
+     * This replicates the console "Query Menu (Events)" sub-menu
+     * using a Swing dialog with buttons for each operation.
+     */
+    private void showQueryMenu() {
+        if (conn == null) {
+            appendLine("No DB connection.");
+            return;
+        }
+
+        boolean done = false;
+        while (!done) {
+            String[] options = {
+                    "List Events",
+                    "Add Event",
+                    "Update Event Title",
+                    "Delete Event",
+                    "Search Events by Title",
+                    "Back"
+            };
+
+            int choice = JOptionPane.showOptionDialog(
+                    this,
+                    "=== Query Menu (Events) ===",
+                    "Query Tables – Events",
+                    JOptionPane.DEFAULT_OPTION,
+                    JOptionPane.PLAIN_MESSAGE,
+                    null,
+                    options,
+                    options[0]
+            );
+
+            if (choice == 0) {
+                listEvents();
+            } else if (choice == 1) {
+                addEvent();
+            } else if (choice == 2) {
+                updateEventTitle();
+            } else if (choice == 3) {
+                deleteEvent();
+            } else if (choice == 4) {
+                promptSearchEvents();
+            } else {
+                // Back or dialog closed
+                done = true;
+            }
         }
     }
 
@@ -158,7 +215,7 @@ public class ETicketGUI extends JFrame {
 
     /**
      * Create the 3NF/BCNF schema for the e-ticket system.
-     * This is the same schema you used in A6/A8.
+     * This is the same schema used in the console app.
      */
     private void createTables() {
         if (conn == null) {
@@ -173,161 +230,161 @@ public class ETicketGUI extends JFrame {
             // USERS
             stmt.executeUpdate(
                     "CREATE TABLE Users (" +
-                    "    UserID       NUMBER(10)      PRIMARY KEY," +
-                    "    FirstName    VARCHAR2(100)   NOT NULL," +
-                    "    LastName     VARCHAR2(100)   NOT NULL," +
-                    "    Email        VARCHAR2(255)   NOT NULL UNIQUE," +
-                    "    Phone        VARCHAR2(30)," +
-                    "    CreatedAt    DATE            DEFAULT SYSDATE NOT NULL" +
-                    ")"
+                            "    UserID       NUMBER(10)      PRIMARY KEY," +
+                            "    FirstName    VARCHAR2(100)   NOT NULL," +
+                            "    LastName     VARCHAR2(100)   NOT NULL," +
+                            "    Email        VARCHAR2(255)   NOT NULL UNIQUE," +
+                            "    Phone        VARCHAR2(30)," +
+                            "    CreatedAt    DATE            DEFAULT SYSDATE NOT NULL" +
+                            ")"
             );
 
             // ORGANIZERS
             stmt.executeUpdate(
                     "CREATE TABLE Organizers (" +
-                    "    OrganizerID   NUMBER(10)     PRIMARY KEY," +
-                    "    Name          VARCHAR2(200)  NOT NULL," +
-                    "    ContactEmail  VARCHAR2(255)," +
-                    "    ContactPhone  VARCHAR2(30)" +
-                    ")"
+                            "    OrganizerID   NUMBER(10)     PRIMARY KEY," +
+                            "    Name          VARCHAR2(200)  NOT NULL," +
+                            "    ContactEmail  VARCHAR2(255)," +
+                            "    ContactPhone  VARCHAR2(30)" +
+                            ")"
             );
 
             // VENUES
             stmt.executeUpdate(
                     "CREATE TABLE Venues (" +
-                    "    VenueID   NUMBER(10)     PRIMARY KEY," +
-                    "    Name      VARCHAR2(200)  NOT NULL," +
-                    "    Address   VARCHAR2(300)," +
-                    "    City      VARCHAR2(120)," +
-                    "    Capacity  NUMBER(10)" +
-                    ")"
+                            "    VenueID   NUMBER(10)     PRIMARY KEY," +
+                            "    Name      VARCHAR2(200)  NOT NULL," +
+                            "    Address   VARCHAR2(300)," +
+                            "    City      VARCHAR2(120)," +
+                            "    Capacity  NUMBER(10)" +
+                            ")"
             );
 
             // EVENTS
             stmt.executeUpdate(
                     "CREATE TABLE Events (" +
-                    "    EventID     NUMBER(10)    PRIMARY KEY," +
-                    "    OrganizerID NUMBER(10)    NOT NULL," +
-                    "    Title       VARCHAR2(200) NOT NULL," +
-                    "    Category    VARCHAR2(100)," +
-                    "    Description VARCHAR2(1000)," +
-                    "    CONSTRAINT fk_events_organizer" +
-                    "        FOREIGN KEY (OrganizerID)" +
-                    "        REFERENCES Organizers (OrganizerID)" +
-                    ")"
+                            "    EventID     NUMBER(10)    PRIMARY KEY," +
+                            "    OrganizerID NUMBER(10)    NOT NULL," +
+                            "    Title       VARCHAR2(200) NOT NULL," +
+                            "    Category    VARCHAR2(100)," +
+                            "    Description VARCHAR2(1000)," +
+                            "    CONSTRAINT fk_events_organizer" +
+                            "        FOREIGN KEY (OrganizerID)" +
+                            "        REFERENCES Organizers (OrganizerID)" +
+                            ")"
             );
 
             // SHOWTIMES
             stmt.executeUpdate(
                     "CREATE TABLE Showtimes (" +
-                    "    ShowtimeID    NUMBER(10)     PRIMARY KEY," +
-                    "    EventID       NUMBER(10)     NOT NULL," +
-                    "    VenueID       NUMBER(10)     NOT NULL," +
-                    "    StartDateTime DATE           NOT NULL," +
-                    "    BasePrice     NUMBER(10,2)   NOT NULL," +
-                    "    CONSTRAINT fk_showtimes_event" +
-                    "        FOREIGN KEY (EventID)" +
-                    "        REFERENCES Events (EventID)," +
-                    "    CONSTRAINT fk_showtimes_venue" +
-                    "        FOREIGN KEY (VenueID)" +
-                    "        REFERENCES Venues (VenueID)," +
-                    "    CONSTRAINT uq_showtimes_event_venue_start" +
-                    "        UNIQUE (EventID, VenueID, StartDateTime)" +
-                    ")"
+                            "    ShowtimeID    NUMBER(10)     PRIMARY KEY," +
+                            "    EventID       NUMBER(10)     NOT NULL," +
+                            "    VenueID       NUMBER(10)     NOT NULL," +
+                            "    StartDateTime DATE           NOT NULL," +
+                            "    BasePrice     NUMBER(10,2)   NOT NULL," +
+                            "    CONSTRAINT fk_showtimes_event" +
+                            "        FOREIGN KEY (EventID)" +
+                            "        REFERENCES Events (EventID)," +
+                            "    CONSTRAINT fk_showtimes_venue" +
+                            "        FOREIGN KEY (VenueID)" +
+                            "        REFERENCES Venues (VenueID)," +
+                            "    CONSTRAINT uq_showtimes_event_venue_start" +
+                            "        UNIQUE (EventID, VenueID, StartDateTime)" +
+                            ")"
             );
 
             // SEATS
             stmt.executeUpdate(
                     "CREATE TABLE Seats (" +
-                    "    SeatID     NUMBER(10)    PRIMARY KEY," +
-                    "    VenueID    NUMBER(10)    NOT NULL," +
-                    "    Section    VARCHAR2(50)  NOT NULL," +
-                    "    RowLabel   VARCHAR2(20)  NOT NULL," +
-                    "    SeatNumber VARCHAR2(20)  NOT NULL," +
-                    "    CONSTRAINT fk_seats_venue" +
-                    "        FOREIGN KEY (VenueID)" +
-                    "        REFERENCES Venues (VenueID)," +
-                    "    CONSTRAINT uq_venue_section_row_seat" +
-                    "        UNIQUE (VenueID, Section, RowLabel, SeatNumber)" +
-                    ")"
+                            "    SeatID     NUMBER(10)    PRIMARY KEY," +
+                            "    VenueID    NUMBER(10)    NOT NULL," +
+                            "    Section    VARCHAR2(50)  NOT NULL," +
+                            "    RowLabel   VARCHAR2(20)  NOT NULL," +
+                            "    SeatNumber VARCHAR2(20)  NOT NULL," +
+                            "    CONSTRAINT fk_seats_venue" +
+                            "        FOREIGN KEY (VenueID)" +
+                            "        REFERENCES Venues (VenueID)," +
+                            "    CONSTRAINT uq_venue_section_row_seat" +
+                            "        UNIQUE (VenueID, Section, RowLabel, SeatNumber)" +
+                            ")"
             );
 
             // ORDERS
             stmt.executeUpdate(
                     "CREATE TABLE Orders (" +
-                    "    OrderID        NUMBER(10)     PRIMARY KEY," +
-                    "    UserID         NUMBER(10)     NOT NULL," +
-                    "    OrderDateTime  DATE           DEFAULT SYSDATE NOT NULL," +
-                    "    OrderTotal     NUMBER(10,2)   NOT NULL," +
-                    "    Status         VARCHAR2(20)   NOT NULL," +
-                    "    CONSTRAINT fk_orders_user" +
-                    "        FOREIGN KEY (UserID)" +
-                    "        REFERENCES Users (UserID)" +
-                    ")"
+                            "    OrderID        NUMBER(10)     PRIMARY KEY," +
+                            "    UserID         NUMBER(10)     NOT NULL," +
+                            "    OrderDateTime  DATE           DEFAULT SYSDATE NOT NULL," +
+                            "    OrderTotal     NUMBER(10,2)   NOT NULL," +
+                            "    Status         VARCHAR2(20)   NOT NULL," +
+                            "    CONSTRAINT fk_orders_user" +
+                            "        FOREIGN KEY (UserID)" +
+                            "        REFERENCES Users (UserID)" +
+                            ")"
             );
 
             // PAYMENTS
             stmt.executeUpdate(
                     "CREATE TABLE Payments (" +
-                    "    PaymentID  NUMBER(10)     PRIMARY KEY," +
-                    "    OrderID    NUMBER(10)     NOT NULL," +
-                    "    Amount     NUMBER(10,2)   NOT NULL," +
-                    "    Method     VARCHAR2(40)   NOT NULL," +
-                    "    PaidAt     DATE," +
-                    "    AuthCode   VARCHAR2(64)," +
-                    "    CONSTRAINT fk_payments_order" +
-                    "        FOREIGN KEY (OrderID)" +
-                    "        REFERENCES Orders (OrderID)" +
-                    ")"
+                            "    PaymentID  NUMBER(10)     PRIMARY KEY," +
+                            "    OrderID    NUMBER(10)     NOT NULL," +
+                            "    Amount     NUMBER(10,2)   NOT NULL," +
+                            "    Method     VARCHAR2(40)   NOT NULL," +
+                            "    PaidAt     DATE," +
+                            "    AuthCode   VARCHAR2(64)," +
+                            "    CONSTRAINT fk_payments_order" +
+                            "        FOREIGN KEY (OrderID)" +
+                            "        REFERENCES Orders (OrderID)" +
+                            ")"
             );
 
             // SEATMAPS
             stmt.executeUpdate(
                     "CREATE TABLE SeatMaps (" +
-                    "    SeatMapID  NUMBER(10)     PRIMARY KEY," +
-                    "    ShowtimeID NUMBER(10)     NOT NULL," +
-                    "    SeatID     NUMBER(10)     NOT NULL," +
-                    "    Status     VARCHAR2(16)   NOT NULL," +
-                    "    CONSTRAINT fk_seatmaps_showtime" +
-                    "        FOREIGN KEY (ShowtimeID)" +
-                    "        REFERENCES Showtimes (ShowtimeID)," +
-                    "    CONSTRAINT fk_seatmaps_seat" +
-                    "        FOREIGN KEY (SeatID)" +
-                    "        REFERENCES Seats (SeatID)," +
-                    "    CONSTRAINT uq_seatmaps_showtime_seat" +
-                    "        UNIQUE (ShowtimeID, SeatID)," +
-                    "    CONSTRAINT chk_seatmaps_status" +
-                    "        CHECK (Status IN ('AVAILABLE', 'HELD', 'SOLD'))" +
-                    ")"
+                            "    SeatMapID  NUMBER(10)     PRIMARY KEY," +
+                            "    ShowtimeID NUMBER(10)     NOT NULL," +
+                            "    SeatID     NUMBER(10)     NOT NULL," +
+                            "    Status     VARCHAR2(16)   NOT NULL," +
+                            "    CONSTRAINT fk_seatmaps_showtime" +
+                            "        FOREIGN KEY (ShowtimeID)" +
+                            "        REFERENCES Showtimes (ShowtimeID)," +
+                            "    CONSTRAINT fk_seatmaps_seat" +
+                            "        FOREIGN KEY (SeatID)" +
+                            "        REFERENCES Seats (SeatID)," +
+                            "    CONSTRAINT uq_seatmaps_showtime_seat" +
+                            "        UNIQUE (ShowtimeID, SeatID)," +
+                            "    CONSTRAINT chk_seatmaps_status" +
+                            "        CHECK (Status IN ('AVAILABLE', 'HELD', 'SOLD'))" +
+                            ")"
             );
 
             // TICKETS
             stmt.executeUpdate(
                     "CREATE TABLE Tickets (" +
-                    "    TicketID     NUMBER(10)     PRIMARY KEY," +
-                    "    OrderID      NUMBER(10)     NOT NULL," +
-                    "    ShowtimeID   NUMBER(10)     NOT NULL," +
-                    "    SeatID       NUMBER(10)     NOT NULL," +
-                    "    TicketPrice  NUMBER(10,2)   NOT NULL," +
-                    "    QRCode       VARCHAR2(128)  NOT NULL," +
-                    "    IsValidated  CHAR(1)        DEFAULT 'N' NOT NULL," +
-                    "    ValidatedAt  DATE," +
-                    "    CONSTRAINT fk_tickets_order" +
-                    "        FOREIGN KEY (OrderID)" +
-                    "        REFERENCES Orders (OrderID)," +
-                    "    CONSTRAINT fk_tickets_showtime" +
-                    "        FOREIGN KEY (ShowtimeID)" +
-                    "        REFERENCES Showtimes (ShowtimeID)," +
-                    "    CONSTRAINT fk_tickets_seat" +
-                    "        FOREIGN KEY (SeatID)" +
-                    "        REFERENCES Seats (SeatID)," +
-                    "    CONSTRAINT uq_tickets_qrcode" +
-                    "        UNIQUE (QRCode)," +
-                    "    CONSTRAINT uq_tickets_showtime_seat" +
-                    "        UNIQUE (ShowtimeID, SeatID)," +
-                    "    CONSTRAINT chk_tickets_isvalidated" +
-                    "        CHECK (IsValidated IN ('Y','N'))" +
-                    ")"
+                            "    TicketID     NUMBER(10)     PRIMARY KEY," +
+                            "    OrderID      NUMBER(10)     NOT NULL," +
+                            "    ShowtimeID   NUMBER(10)     NOT NULL," +
+                            "    SeatID       NUMBER(10)     NOT NULL," +
+                            "    TicketPrice  NUMBER(10,2)   NOT NULL," +
+                            "    QRCode       VARCHAR2(128)  NOT NULL," +
+                            "    IsValidated  CHAR(1)        DEFAULT 'N' NOT NULL," +
+                            "    ValidatedAt  DATE," +
+                            "    CONSTRAINT fk_tickets_order" +
+                            "        FOREIGN KEY (OrderID)" +
+                            "        REFERENCES Orders (OrderID)," +
+                            "    CONSTRAINT fk_tickets_showtime" +
+                            "        FOREIGN KEY (ShowtimeID)" +
+                            "        REFERENCES Showtimes (ShowtimeID)," +
+                            "    CONSTRAINT fk_tickets_seat" +
+                            "        FOREIGN KEY (SeatID)" +
+                            "        REFERENCES Seats (SeatID)," +
+                            "    CONSTRAINT uq_tickets_qrcode" +
+                            "        UNIQUE (QRCode)," +
+                            "    CONSTRAINT uq_tickets_showtime_seat" +
+                            "        UNIQUE (ShowtimeID, SeatID)," +
+                            "    CONSTRAINT chk_tickets_isvalidated" +
+                            "        CHECK (IsValidated IN ('Y','N'))" +
+                            ")"
             );
 
             appendLine("All tables created successfully.");
@@ -357,7 +414,7 @@ public class ETicketGUI extends JFrame {
             // USERS
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO Users (UserID, FirstName, LastName, Email, Phone) " +
-                    "VALUES (?, ?, ?, ?, ?)")) {
+                            "VALUES (?, ?, ?, ?, ?)")) {
                 ps.setInt(1, 1);
                 ps.setString(2, "Ahmad");
                 ps.setString(3, "Kanaan");
@@ -383,7 +440,7 @@ public class ETicketGUI extends JFrame {
             // ORGANIZERS
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO Organizers (OrganizerID, Name, ContactEmail, ContactPhone) " +
-                    "VALUES (?, ?, ?, ?)")) {
+                            "VALUES (?, ?, ?, ?)")) {
                 ps.setInt(1, 1);
                 ps.setString(2, "Live Nation");
                 ps.setString(3, "contact@livenation.com");
@@ -400,7 +457,7 @@ public class ETicketGUI extends JFrame {
             // VENUES
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO Venues (VenueID, Name, Address, City, Capacity) " +
-                    "VALUES (?, ?, ?, ?, ?)")) {
+                            "VALUES (?, ?, ?, ?, ?)")) {
                 ps.setInt(1, 1);
                 ps.setString(2, "Scotiabank Arena");
                 ps.setString(3, "40 Bay St");
@@ -419,7 +476,7 @@ public class ETicketGUI extends JFrame {
             // EVENTS
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO Events (EventID, OrganizerID, Title, Category, Description) " +
-                    "VALUES (?, ?, ?, ?, ?)")) {
+                            "VALUES (?, ?, ?, ?, ?)")) {
                 ps.setInt(1, 1);
                 ps.setInt(2, 1);
                 ps.setString(3, "Drake Live Concert");
@@ -438,7 +495,7 @@ public class ETicketGUI extends JFrame {
             // SHOWTIMES
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO Showtimes (ShowtimeID, EventID, VenueID, StartDateTime, BasePrice) " +
-                    "VALUES (?, ?, ?, ?, ?)")) {
+                            "VALUES (?, ?, ?, ?, ?)")) {
                 ps.setInt(1, 1);
                 ps.setInt(2, 1);
                 ps.setInt(3, 1);
@@ -457,7 +514,7 @@ public class ETicketGUI extends JFrame {
             // SEATS
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO Seats (SeatID, VenueID, Section, RowLabel, SeatNumber) " +
-                    "VALUES (?, ?, ?, ?, ?)")) {
+                            "VALUES (?, ?, ?, ?, ?)")) {
                 // Venue 1: 3 seats
                 ps.setInt(1, 1);
                 ps.setInt(2, 1);
@@ -499,7 +556,7 @@ public class ETicketGUI extends JFrame {
             // ORDERS
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO Orders (OrderID, UserID, OrderDateTime, OrderTotal, Status) " +
-                    "VALUES (?, ?, SYSDATE, ?, ?)")) {
+                            "VALUES (?, ?, SYSDATE, ?, ?)")) {
                 ps.setInt(1, 1);
                 ps.setInt(2, 1);
                 ps.setDouble(3, 150.00);
@@ -516,7 +573,7 @@ public class ETicketGUI extends JFrame {
             // PAYMENTS
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO Payments (PaymentID, OrderID, Amount, Method, PaidAt, AuthCode) " +
-                    "VALUES (?, ?, ?, ?, SYSDATE, ?)")) {
+                            "VALUES (?, ?, ?, ?, SYSDATE, ?)")) {
                 ps.setInt(1, 1);
                 ps.setInt(2, 1);
                 ps.setDouble(3, 150.00);
@@ -535,7 +592,7 @@ public class ETicketGUI extends JFrame {
             // TICKETS
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO Tickets (TicketID, OrderID, ShowtimeID, SeatID, TicketPrice, QRCode, IsValidated) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                            "VALUES (?, ?, ?, ?, ?, ?, ?)")) {
                 ps.setInt(1, 1);
                 ps.setInt(2, 1);
                 ps.setInt(3, 1);
@@ -570,7 +627,7 @@ public class ETicketGUI extends JFrame {
         }
     }
 
-    // ============== 4) Simple reports on EVENTS ==============
+    // ============== 4) Simple reports & CRUD on EVENTS ==============
 
     /**
      * Simple report #1: list all events (EventID, Title, Category).
@@ -606,27 +663,225 @@ public class ETicketGUI extends JFrame {
     }
 
     /**
-     * Simple report #2: search events by keyword in Title.
-     * Uses a LIKE '%keyword%' filter (case-insensitive).
+     * Add a new event (interactive prompts via dialogs).
      */
-    private void searchEvents() {
+    private void addEvent() {
         if (conn == null) {
             appendLine("No DB connection.");
             return;
         }
 
-        String keyword = searchField.getText().trim().toLowerCase();
+        try {
+            String idStr = JOptionPane.showInputDialog(
+                    this,
+                    "New EventID (integer, must be unique):",
+                    "Add Event",
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (idStr == null) return; // cancelled
+            int eventId = Integer.parseInt(idStr.trim());
+
+            String orgStr = JOptionPane.showInputDialog(
+                    this,
+                    "OrganizerID (must exist in ORGANIZERS):",
+                    "Add Event",
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (orgStr == null) return;
+            int organizerId = Integer.parseInt(orgStr.trim());
+
+            String title = JOptionPane.showInputDialog(
+                    this,
+                    "Title:",
+                    "Add Event",
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (title == null) return;
+            title = title.trim();
+
+            String category = JOptionPane.showInputDialog(
+                    this,
+                    "Category (e.g., Concert, Movie):",
+                    "Add Event",
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (category == null) category = "";
+            category = category.trim();
+
+            String description = JOptionPane.showInputDialog(
+                    this,
+                    "Description (can be blank):",
+                    "Add Event",
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (description == null) description = "";
+            description = description.trim();
+
+            String sql = "INSERT INTO Events (EventID, OrganizerID, Title, Category, Description) " +
+                    "VALUES (?, ?, ?, ?, ?)";
+
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, eventId);
+                ps.setInt(2, organizerId);
+                ps.setString(3, title);
+                ps.setString(4, category);
+                ps.setString(5, description);
+
+                int rows = ps.executeUpdate();
+                appendLine("Inserted " + rows + " row(s) into EVENTS.");
+            }
+
+        } catch (NumberFormatException ex) {
+            appendLine("Invalid number input. Event not added.");
+        } catch (SQLException e) {
+            appendLine("Error inserting event: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Update event title by EventID (interactive).
+     */
+    private void updateEventTitle() {
+        if (conn == null) {
+            appendLine("No DB connection.");
+            return;
+        }
+
+        try {
+            String idStr = JOptionPane.showInputDialog(
+                    this,
+                    "EventID to update:",
+                    "Update Event Title",
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (idStr == null) return;
+            int eventId = Integer.parseInt(idStr.trim());
+
+            String newTitle = JOptionPane.showInputDialog(
+                    this,
+                    "New Title:",
+                    "Update Event Title",
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (newTitle == null) return;
+            newTitle = newTitle.trim();
+
+            String sql = "UPDATE Events SET Title = ? WHERE EventID = ?";
+
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, newTitle);
+                ps.setInt(2, eventId);
+
+                int rows = ps.executeUpdate();
+                if (rows == 0) {
+                    appendLine("No event found with EventID = " + eventId);
+                } else {
+                    appendLine("Updated " + rows + " row(s).");
+                }
+            }
+
+        } catch (NumberFormatException ex) {
+            appendLine("Invalid number input. Nothing updated.");
+        } catch (SQLException e) {
+            appendLine("Error updating event: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Delete event by EventID (interactive, with confirmation).
+     */
+    private void deleteEvent() {
+        if (conn == null) {
+            appendLine("No DB connection.");
+            return;
+        }
+
+        try {
+            String idStr = JOptionPane.showInputDialog(
+                    this,
+                    "EventID to delete:",
+                    "Delete Event",
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (idStr == null) return;
+            int eventId = Integer.parseInt(idStr.trim());
+
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "Are you sure you want to delete EventID = " + eventId + "?",
+                    "Confirm Delete",
+                    JOptionPane.YES_NO_OPTION
+            );
+            if (confirm != JOptionPane.YES_OPTION) {
+                appendLine("Delete cancelled.");
+                return;
+            }
+
+            String sql = "DELETE FROM Events WHERE EventID = ?";
+
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, eventId);
+
+                int rows = ps.executeUpdate();
+                if (rows == 0) {
+                    appendLine("No event found with EventID = " + eventId);
+                } else {
+                    appendLine("Deleted " + rows + " row(s).");
+                }
+            }
+
+        } catch (NumberFormatException ex) {
+            appendLine("Invalid number input. Nothing deleted.");
+        } catch (SQLException e) {
+            appendLine("Error deleting event (maybe FK constraints): " + e.getMessage());
+        }
+    }
+
+    /**
+     * Helper used by Query Menu "Search Events by Title":
+     * prompts for keyword and then calls the search logic.
+     */
+    private void promptSearchEvents() {
+        String keyword = JOptionPane.showInputDialog(
+                this,
+                "Keyword to search in Title (case-insensitive):",
+                "Search Events",
+                JOptionPane.QUESTION_MESSAGE
+        );
+        if (keyword == null) return; // cancelled
+        searchEventsByKeyword(keyword);
+    }
+
+    /**
+     * Bottom search box handler – gets keyword from the text field.
+     */
+    private void searchEvents() {
+        String keyword = searchField.getText();
+        searchEventsByKeyword(keyword);
+    }
+
+    /**
+     * Core search implementation (used both by bottom search box
+     * and by the Query Menu "Search Events by Title").
+     */
+    private void searchEventsByKeyword(String keywordRaw) {
+        if (conn == null) {
+            appendLine("No DB connection.");
+            return;
+        }
+
+        String keyword = (keywordRaw == null ? "" : keywordRaw).trim().toLowerCase();
         if (keyword.isEmpty()) {
-            appendLine("Please type a keyword in the search box.");
+            appendLine("Please type a keyword in the search box or dialog.");
             return;
         }
 
         appendLine("=== Search Events: \"" + keyword + "\" ===");
 
         String sql = "SELECT EventID, Title, Category " +
-                     "FROM Events " +
-                     "WHERE LOWER(Title) LIKE ? " +
-                     "ORDER BY EventID";
+                "FROM Events " +
+                "WHERE LOWER(Title) LIKE ? " +
+                "ORDER BY EventID";
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, "%" + keyword + "%");
@@ -657,7 +912,7 @@ public class ETicketGUI extends JFrame {
      * Small modal dialog that asks the user for Oracle connection info
      * (host, port, SID, username, password).
      *
-     * We keep sensible defaults for TMU:
+     * Defaults for TMU:
      *  - Host: oracle.scs.ryerson.ca
      *  - Port: 1521
      *  - SID:  orcl
@@ -741,8 +996,6 @@ public class ETicketGUI extends JFrame {
                     );
                     return;
                 }
-                // We only validate that username is non-empty here.
-                // Actual DB connection test happens in main().
                 succeeded = true;
                 dispose();
             });
@@ -768,8 +1021,7 @@ public class ETicketGUI extends JFrame {
         // Optional: nicer look on Windows / macOS
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) { }
 
         SwingUtilities.invokeLater(() -> {
             // 1) Ask user for DB credentials
